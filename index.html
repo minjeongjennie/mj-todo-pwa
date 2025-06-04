@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>투두리스트 (파스텔톤 디자인)</title>
+<title>주간 투두리스트</title>
 <style>
   body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -16,14 +16,17 @@
   }
   #dateList {
     display: flex;
-    justify-content: space-between;
-    margin-bottom: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 6px;
+    margin-bottom: 25px;
   }
   .date-item {
-    flex: 1;
-    margin: 0 4px;
-    padding: 10px 0;
-    background: #d6f0e4; /* 연한 민트 */
+    flex: 1 1 12%;
+    min-width: 48px;
+    max-width: 56px;
+    padding: 6px 4px;
+    background: #d6f0e4;
     border-radius: 12px;
     text-align: center;
     cursor: pointer;
@@ -32,26 +35,30 @@
     color: #2a7a4f;
     box-shadow: 0 1px 3px rgba(42,122,79,0.3);
     transition: background 0.3s, color 0.3s;
+    font-size: 12px;
+    line-height: 1.1;
   }
   .date-item:hover {
     background: #b4d6c4;
   }
   .date-item.selected {
-    background: #2a7a4f; /* 진한 초록 */
+    background: #2a7a4f;
     color: white;
     box-shadow: 0 3px 8px rgba(42,122,79,0.7);
   }
 
   #inputArea {
     display: flex;
+    gap: 8px;
     margin-bottom: 30px;
     background: #fff;
     padding: 12px 16px;
     border-radius: 14px;
     box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+    flex-wrap: wrap;
   }
   #newTodo {
-    flex: 1;
+    flex: 1 1 60%;
     border: none;
     outline: none;
     font-size: 16px;
@@ -61,9 +68,19 @@
     border-radius: 10px;
     background: #fefefe;
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+    min-width: 150px;
+  }
+  #timeSelect {
+    flex: 1 1 30%;
+    font-size: 14px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    background: #fafafa;
+    color: #2a7a4f;
   }
   #addBtn {
-    margin-left: 12px;
+    flex: 1 1 10%;
     background: #9dd7af;
     border: none;
     border-radius: 12px;
@@ -72,6 +89,7 @@
     font-weight: 700;
     cursor: pointer;
     transition: background 0.3s;
+    min-width: 50px;
   }
   #addBtn:hover {
     background: #7cbf8b;
@@ -81,6 +99,14 @@
     list-style: none;
     padding: 0;
     margin: 0;
+  }
+  #todoList h3 {
+    color: #2a7a4f;
+    margin-top: 20px;
+    margin-bottom: 8px;
+    font-weight: 700;
+    border-bottom: 1px solid #b4d6c4;
+    padding-bottom: 4px;
   }
   #todoList li {
     display: flex;
@@ -123,7 +149,12 @@
 
 <div id="inputArea">
   <input type="text" id="newTodo" placeholder="새 할 일을 입력하세요..." />
-  <button id="addBtn">추가</button>
+  <select id="timeSelect" aria-label="시간대 선택">
+    <option value="morning">오전 (6시-12시)</option>
+    <option value="afternoon">오후 (12시-18시)</option>
+    <option value="night">밤 (18시 이후)</option>
+  </select>
+  <button id="addBtn" aria-label="투두 추가">추가</button>
 </div>
 
 <ul id="todoList"></ul>
@@ -133,12 +164,12 @@ const dateList = document.getElementById('dateList');
 const todoList = document.getElementById('todoList');
 const newTodo = document.getElementById('newTodo');
 const addBtn = document.getElementById('addBtn');
+const timeSelect = document.getElementById('timeSelect');
 
-let todos = {};  // 날짜별 투두 저장소, { "2025-06-04": [{text, done}, ...], ... }
+let todos = {};  // { 날짜: {시간대: [{text, done}, ...]} }
 
 let selectedDate = null;
 
-// 오늘 날짜부터 일주일 날짜 생성, YYYY-MM-DD 형식
 function getWeekDates() {
   const dates = [];
   const today = new Date();
@@ -150,19 +181,18 @@ function getWeekDates() {
   return dates;
 }
 
-// 날짜 리스트 렌더링
 function renderDateList() {
   const dates = getWeekDates();
   dateList.innerHTML = '';
   dates.forEach(dateStr => {
     const d = new Date(dateStr);
-    const dayName = d.toLocaleDateString('ko-KR', { weekday: 'short' }); // 요일 (월, 화 ...)
+    const dayName = d.toLocaleDateString('ko-KR', { weekday: 'short' });
     const dateNum = d.getDate();
 
     const div = document.createElement('div');
     div.className = 'date-item';
     if(dateStr === selectedDate) div.classList.add('selected');
-    div.textContent = `${dayName} ${dateNum}`;
+    div.innerHTML = `<div>${dayName}</div><div>${dateNum}</div>`;
     div.title = dateStr;
 
     div.addEventListener('click', () => {
@@ -175,77 +205,91 @@ function renderDateList() {
   });
 }
 
-// 로컬스토리지에서 투두 불러오기
 function loadTodos() {
   const saved = localStorage.getItem('todos');
   todos = saved ? JSON.parse(saved) : {};
 }
 
-// 로컬스토리지에 투두 저장
 function saveTodos() {
   localStorage.setItem('todos', JSON.stringify(todos));
 }
 
-// 선택한 날짜 투두 렌더링
 function renderTodos() {
   todoList.innerHTML = '';
   if(!selectedDate) return;
 
-  if(!todos[selectedDate]) todos[selectedDate] = [];
+  if(!todos[selectedDate]) todos[selectedDate] = {};
+  const timeSections = ['morning', 'afternoon', 'night'];
+  const timeLabels = {
+    morning: '오전 (6시-12시)',
+    afternoon: '오후 (12시-18시)',
+    night: '밤 (18시-00시)'
+  };
 
-  todos[selectedDate].forEach((todo, idx) => {
-    const li = document.createElement('li');
+  timeSections.forEach(time => {
+    if(!todos[selectedDate][time]) todos[selectedDate][time] = [];
+    const list = todos[selectedDate][time];
+    if(list.length === 0) return; // 항목 없으면 구역 생략
 
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.checked = todo.done;
+    const h3 = document.createElement('h3');
+    h3.textContent = timeLabels[time];
+    todoList.appendChild(h3);
 
-    checkbox.addEventListener('change', () => {
-      todos[selectedDate][idx].done = checkbox.checked;
-      saveTodos();
-      renderTodos(); // 스타일 다시 반영
+    list.forEach((todo, idx) => {
+      const li = document.createElement('li');
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = todo.done;
+
+      checkbox.addEventListener('change', () => {
+        todos[selectedDate][time][idx].done = checkbox.checked;
+        saveTodos();
+        renderTodos();
+      });
+
+      const span = document.createElement('span');
+      span.textContent = todo.text;
+      if(todo.done) {
+        span.classList.add('done');
+      } else {
+        span.classList.remove('done');
+      }
+
+      const delBtn = document.createElement('button');
+      delBtn.textContent = 'X';
+      delBtn.className = 'deleteBtn';
+      delBtn.title = '삭제';
+      delBtn.addEventListener('click', () => {
+        todos[selectedDate][time].splice(idx, 1);
+        saveTodos();
+        renderTodos();
+      });
+
+      li.appendChild(checkbox);
+      li.appendChild(span);
+      li.appendChild(delBtn);
+
+      todoList.appendChild(li);
     });
-
-    const span = document.createElement('span');
-    span.textContent = todo.text;
-    if(todo.done) {
-      span.classList.add('done');
-    } else {
-      span.classList.remove('done');
-    }
-
-    const delBtn = document.createElement('button');
-    delBtn.textContent = '✕';
-    delBtn.className = 'deleteBtn';
-    delBtn.title = '삭제';
-    delBtn.addEventListener('click', () => {
-      todos[selectedDate].splice(idx, 1);
-      saveTodos();
-      renderTodos();
-    });
-
-    li.appendChild(checkbox);
-    li.appendChild(span);
-    li.appendChild(delBtn);
-
-    todoList.appendChild(li);
   });
 }
 
-// 새 투두 추가
 addBtn.addEventListener('click', () => {
-  if(!selectedDate) return alert('날짜를 선택하세요!');
+  if(!selectedDate) return alert('날짜 선택');
   const text = newTodo.value.trim();
-  if(!text) return alert('투두를 입력하세요!');
-  if(!todos[selectedDate]) todos[selectedDate] = [];
+  if(!text) return alert('할 일 추가');
+  const time = timeSelect.value;
 
-  todos[selectedDate].push({text, done:false});
+  if(!todos[selectedDate]) todos[selectedDate] = {};
+  if(!todos[selectedDate][time]) todos[selectedDate][time] = [];
+
+  todos[selectedDate][time].push({text, done:false});
   newTodo.value = '';
   saveTodos();
   renderTodos();
 });
 
-// 초기값 셋팅 및 렌더링
 loadTodos();
 selectedDate = getWeekDates()[0];
 renderDateList();
