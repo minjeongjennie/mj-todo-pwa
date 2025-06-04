@@ -3,19 +3,62 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>날짜별 투두리스트</title>
+<title>일주일 날짜별 투두리스트</title>
 <style>
-  body { font-family: Arial, sans-serif; max-width: 500px; margin: 20px auto; }
-  ul { padding-left: 0; }
-  li { list-style: none; margin: 8px 0; }
+  body {
+    font-family: Arial, sans-serif;
+    max-width: 600px;
+    margin: 20px auto;
+    padding: 0 15px;
+  }
+  .date-list {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+  }
+  .date-item {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    text-align: center;
+    user-select: none;
+  }
+  .date-item.selected {
+    background-color: #007bff;
+    color: white;
+    font-weight: bold;
+    border-color: #007bff;
+  }
+  ul {
+    padding-left: 0;
+  }
+  li {
+    list-style: none;
+    margin: 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  input[type="text"] {
+    width: 80%;
+    padding: 6px 8px;
+    font-size: 16px;
+  }
+  button {
+    padding: 6px 12px;
+    font-size: 16px;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
 
-<h2>날짜별 투두리스트</h2>
+<h2>일주일 날짜별 투두리스트</h2>
 
-<label for="datePicker">날짜 선택: </label>
-<input type="date" id="datePicker" />
+<div class="date-list" id="dateList"></div>
 
 <ul id="todoList"></ul>
 
@@ -23,51 +66,86 @@
 <button id="addBtn">추가</button>
 
 <script>
-const datePicker = document.getElementById('datePicker');
+const dateList = document.getElementById('dateList');
 const todoList = document.getElementById('todoList');
 const newTodo = document.getElementById('newTodo');
 const addBtn = document.getElementById('addBtn');
 
-// 오늘 날짜를 기본값으로 세팅
-datePicker.value = new Date().toISOString().slice(0,10);
+let todos = {};  // 날짜별 투두 저장소, { "2025-06-04": [{text, done}, ...], ... }
 
-let todos = {};  // { "2025-06-04": [{text:"할일", done:false}, ...] }
+let selectedDate = null;
 
-// 저장된 데이터 불러오기
+// 오늘 날짜부터 일주일 날짜 생성, YYYY-MM-DD 형식
+function getWeekDates() {
+  const dates = [];
+  const today = new Date();
+  for(let i=0; i<7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    dates.push(d.toISOString().slice(0,10));
+  }
+  return dates;
+}
+
+// 날짜 리스트 렌더링
+function renderDateList() {
+  const dates = getWeekDates();
+  dateList.innerHTML = '';
+  dates.forEach(dateStr => {
+    const d = new Date(dateStr);
+    const dayName = d.toLocaleDateString('ko-KR', { weekday: 'short' }); // 요일 (월, 화 ...)
+    const dateNum = d.getDate();
+
+    const div = document.createElement('div');
+    div.className = 'date-item';
+    if(dateStr === selectedDate) div.classList.add('selected');
+    div.textContent = `${dayName} ${dateNum}`;
+    div.title = dateStr;
+
+    div.addEventListener('click', () => {
+      selectedDate = dateStr;
+      renderDateList();
+      renderTodos();
+    });
+
+    dateList.appendChild(div);
+  });
+}
+
+// 로컬스토리지에서 투두 불러오기
 function loadTodos() {
   const saved = localStorage.getItem('todos');
   todos = saved ? JSON.parse(saved) : {};
 }
 
-// 저장하기
+// 로컬스토리지에 투두 저장
 function saveTodos() {
   localStorage.setItem('todos', JSON.stringify(todos));
 }
 
-// 현재 선택된 날짜 투두 목록 렌더링
+// 선택한 날짜 투두 렌더링
 function renderTodos() {
-  const date = datePicker.value;
   todoList.innerHTML = '';
+  if(!selectedDate) return;
 
-  if (!todos[date]) todos[date] = [];
+  if(!todos[selectedDate]) todos[selectedDate] = [];
 
-  todos[date].forEach((todo, index) => {
+  todos[selectedDate].forEach((todo, idx) => {
     const li = document.createElement('li');
 
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = todo.done;
+
     checkbox.addEventListener('change', () => {
-      todos[date][index].done = checkbox.checked;
+      todos[selectedDate][idx].done = checkbox.checked;
       saveTodos();
+      renderTodos(); // 스타일 다시 반영
     });
 
     const span = document.createElement('span');
     span.textContent = todo.text;
     span.style.textDecoration = todo.done ? 'line-through' : 'none';
-    checkbox.addEventListener('change', () => {
-      span.style.textDecoration = checkbox.checked ? 'line-through' : 'none';
-    });
 
     li.appendChild(checkbox);
     li.appendChild(span);
@@ -75,25 +153,23 @@ function renderTodos() {
   });
 }
 
+// 새 투두 추가
 addBtn.addEventListener('click', () => {
+  if(!selectedDate) return alert('날짜를 선택하세요!');
   const text = newTodo.value.trim();
-  if (!text) return alert('투두를 입력하세요');
+  if(!text) return alert('투두를 입력하세요!');
+  if(!todos[selectedDate]) todos[selectedDate] = [];
 
-  const date = datePicker.value;
-  if (!todos[date]) todos[date] = [];
-
-  todos[date].push({text, done:false});
+  todos[selectedDate].push({text, done:false});
   newTodo.value = '';
   saveTodos();
   renderTodos();
 });
 
-datePicker.addEventListener('change', () => {
-  renderTodos();
-});
-
-// 초기 실행
+// 초기값 셋팅 및 렌더링
 loadTodos();
+selectedDate = getWeekDates()[0];
+renderDateList();
 renderTodos();
 </script>
 
