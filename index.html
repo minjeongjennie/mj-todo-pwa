@@ -1,0 +1,66 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>나만의 투두리스트</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="투두리스트" />
+  <style>
+    body { font-family: sans-serif; padding: 1rem; background: #f9f9f9; }
+    input, button { padding: 0.5rem; margin: 0.5rem 0; }
+    li { list-style: none; margin: 0.5rem 0; }
+  </style>
+</head>
+<body>
+  <h1>📝 나만의 투두리스트</h1>
+  <input id="todo-input" placeholder="할 일 입력" />
+  <button onclick="addTodo()">추가</button>
+  <ul id="todo-list"></ul>
+
+  <script>
+    const input = document.getElementById("todo-input");
+    const list = document.getElementById("todo-list");
+
+    function saveTodos() {
+      const todos = [];
+      document.querySelectorAll("#todo-list li").forEach(li => {
+        todos.push({ text: li.textContent, checked: li.classList.contains("done") });
+      });
+      localStorage.setItem("todos", JSON.stringify(todos));
+    }
+
+    function loadTodos() {
+      const saved = JSON.parse(localStorage.getItem("todos") || "[]");
+      saved.forEach(({ text, checked }) => {
+        const li = document.createElement("li");
+        li.textContent = text;
+        if (checked) li.classList.add("done");
+        li.onclick = () => {
+          li.classList.toggle("done");
+          saveTodos();
+        };
+        list.appendChild(li);
+      });
+    }
+
+    function addTodo() {
+      const text = input.value.trim();
+      if (!text) return;
+      const li = document.createElement("li");
+      li.textContent = text;
+      li.onclick = () => {
+        li.classList.toggle("done");
+        saveTodos();
+      };
+      list.appendChild(li);
+      input.value = "";
+      saveTodos();
+    }
+
+    loadTodos();
+  </script>
+</body>
+</html>
